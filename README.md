@@ -1,35 +1,35 @@
 # Go Events REST API
 
-> A production-style REST API built in Go for managing events and user registrations.  
-> Designed to demonstrate backend architecture, authentication, validation, and clean project structure using Go.
+> A production-style REST API built in Go for managing events and user registrations.
+> Designed to demonstrate clean backend architecture, JWT authentication, validation, and testability.
 
 ---
 
 ## ✨ Features
 
 - 🔐 JWT-based authentication
-- 🔑 Password hashing using bcrypt
-- 🛡 Protected routes via custom middleware
+- 🛡 Password hashing with bcrypt
+- 🔑 Protected routes using custom middleware
 - 📋 Full CRUD operations for events
-- 👤 Ownership checks (only creators can update/delete events)
-- 📝 Event registration & cancellation
-- 📄 Pagination support for scalable event listing
-- ✅ Structured request validation
-- ⚙️ Environment-based configuration (no hardcoded secrets)
-- 🧪 Unit testing with Go’s built-in testing package
-- 🧾 Custom logging middleware (status codes + response times)
+- 👤 Ownership checks — only event creators can update/delete
+- 🗓 Event registration & cancellation
+- 📄 Pagination for scalable listing
+- 🧪 Structured validation using go-playground/validator
+- ⚙️ Environment-based configuration
+- 🧾 Unit tests with Go testing package
+- 🪵 Custom logging middleware (response times + status codes)
 
 ---
 
 ## 🛠 Tech Stack
 
 - **Go**
-- **Gin** (HTTP framework)
-- **SQLite** (modernc.org/sqlite — pure Go, no CGO required)
-- **golang-jwt/jwt**
-- **bcrypt**
+- **Gin** HTTP framework
+- **SQLite** (modernc.org/sqlite, pure Go)
+- **JWT** authentication
+- **bcrypt** password hashing
 - **go-playground/validator**
-- **godotenv**
+- **godotenv** for env variables
 
 ---
 
@@ -37,26 +37,19 @@
 
 ```
 go-events-api/
-├── config/         # Environment variable loading
-├── db/             # Database connection & schema setup
-├── middleware/     # Authentication & logging middleware
-├── models/         # Database models & query logic
-├── routes/         # Route handlers
-├── utils/          # Shared utilities (JWT, hashing, validation)
+├── api-test/        # Tests for routes and handlers
+├── config/          # Environment setup
+├── db/              # Database connection and setup
+├── middleware/      # Auth & logging middleware
+├── models/          # Database models & queries
+├── routes/          # API route handlers
+├── utils/           # Utils (JWT, validation, hashing)
 ├── .gitignore
 ├── go.mod
 └── main.go
 ```
 
-### Architecture Overview
-
-- **Routes** handle HTTP layer and request/response lifecycle  
-- **Models** handle database operations  
-- **Middleware** handles authentication and request logging  
-- **Utils** provides reusable helpers (JWT, hashing, validation)  
-- **Config** loads environment variables  
-
-The project follows a clean separation of concerns to keep business logic independent from routing and middleware layers.
+This structure cleanly separates concerns for maintainability and clarity.
 
 ---
 
@@ -65,8 +58,8 @@ The project follows a clean separation of concerns to keep business logic indepe
 ### 1️⃣ Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/go-events-api.git
-cd go-events-api
+git clone https://github.com/GVaibhav92/Events-REST-API.git
+cd Events-REST-API
 ```
 
 ### 2️⃣ Install Dependencies
@@ -75,9 +68,7 @@ cd go-events-api
 go mod tidy
 ```
 
-### 3️⃣ Create `.env` File
-
-Create a `.env` file in the root directory:
+### 3️⃣ Create a `.env` File
 
 ```
 PORT=8080
@@ -85,7 +76,7 @@ DB_PATH=api.db
 JWT_SECRET=your-secret-key
 ```
 
-> ⚠️ Never commit your `.env` file.
+> ⚠️ Do **not** commit `.env` or any secret values.
 
 ### 4️⃣ Run the Server
 
@@ -93,7 +84,7 @@ JWT_SECRET=your-secret-key
 go run main.go
 ```
 
-Server starts at:
+The API will start at:
 
 ```
 http://localhost:8080
@@ -103,13 +94,13 @@ http://localhost:8080
 
 ## 🔐 Authentication
 
-Protected routes require a JWT token in the header:
+Protected routes require:
 
 ```
 Authorization: Bearer <token>
 ```
 
-You can obtain a token via:
+Token is obtained via:
 
 ```
 POST /login
@@ -120,22 +111,22 @@ POST /login
 ## 📌 API Overview
 
 | Method | Route | Description | Protected |
-|--------|-------|------------|-----------|
-| POST | /signup | Create user | ❌ |
-| POST | /login | Login user | ❌ |
-| GET | /events | List events (paginated) | ❌ |
-| GET | /events/:id | Get single event | ❌ |
-| POST | /events | Create event | ✅ |
-| PUT | /events/:id | Update event | ✅ |
-| DELETE | /events/:id | Delete event | ✅ |
-| POST | /events/:id/register | Register for event | ✅ |
-| DELETE | /events/:id/register | Cancel registration | ✅ |
+|--------|-------|-------------|-----------|
+| POST | `/signup` | Create a new user | ❌ |
+| POST | `/login` | Login a user | ❌ |
+| GET | `/events` | List events (paginated) | ❌ |
+| GET | `/events/:id` | Get a specific event | ❌ |
+| POST | `/events` | Create event | ✅ |
+| PUT | `/events/:id` | Update event | ✅ |
+| DELETE | `/events/:id` | Delete event | ✅ |
+| POST | `/events/:id/register` | Register for event | ✅ |
+| DELETE | `/events/:id/register` | Cancel registration | ✅ |
 
 ---
 
 ## 📄 Pagination
 
-Event listing supports:
+Supports:
 
 ```
 GET /events?page=1&limit=10
@@ -143,38 +134,36 @@ GET /events?page=1&limit=10
 
 Response includes:
 
-- total records  
-- current page  
-- total pages  
-- limit per page  
+- total records
+- current page
+- total pages
+- limit
 
 ---
 
 ## 🛡 Validation Rules
 
-- Email must be valid format
-- Password: 6–72 characters
-- Event name: 3–100 characters
-- Event description: 10–500 characters
-- Event location: 3–100 characters
-- Event dateTime must be a future date
+- **email** — required, valid email format
+- **password** — required, 6–72 characters
+- **event name** — required, 3–100 characters
+- **event description** — required, 10–500 characters
+- **event location** — required, 3–100 characters
+- **event dateTime** — must be a future date
 
-Validation errors return structured responses.
+Validation errors return a structured JSON response.
 
 ---
 
-## 🧾 Error Format
+## 📦 Error Format
 
-Standard error:
-
+**Standard Error:**
 ```json
 {
   "message": "description of what went wrong"
 }
 ```
 
-Validation error:
-
+**Validation Error:**
 ```json
 {
   "message": "validation failed",
@@ -186,35 +175,34 @@ Validation error:
 
 ---
 
-## 🧪 Running Tests
+## 🧪 Testing
+
+Run all tests:
 
 ```bash
 go test ./...
 ```
 
----
-
 ## 🔮 Future Improvements
 
 - PostgreSQL migration
-- Refresh token implementation
-- OAuth integration
+- Refresh token support
+- OAuth login
 - API rate limiting
-- Docker containerization
-- gRPC microservice split
-- Redis caching layer
+- Containerization (Docker)
+- gRPC microservices
+- Redis caching
 
 ---
 
-## 📌 Why This Project?
+## 📌 Why This Project
 
-This project was built to deeply understand:
+Built to understand:
 
 - Backend architecture in Go
 - Middleware design
-- Authentication flows
-- Database modeling & ownership constraints
-- Clean separation of concerns
-- Writing maintainable and testable code
+- Auth flows & secure routes
+- Database modeling with ownership
+- Testable and maintainable code
 
 ---
