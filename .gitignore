@@ -1,0 +1,20 @@
+# .gitignore
+
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+*.test
+bin/
+dist/
+
+.env
+
+api.db
+*.db
+
+.vscode/
+
+*.log
