@@ -3,18 +3,19 @@ package db
 import (
 	"REST-API/config"
 	"database/sql"
+	"log"
 
 	_ "modernc.org/sqlite"
 )
 
-var DB *sql.DB
+var DB *sql.DB //gloabl db instance (thread-safe connection pool manager)
 
 func InitDB() {
 	var err error
 	DB, err = sql.Open("sqlite", config.App.DBPath)
 
 	if err != nil {
-		panic("Could not connect to database.")
+		log.Fatal("Could not connect to database.")
 	}
 
 	DB.SetMaxOpenConns(10) // Maximum simultaneous database connections
@@ -35,7 +36,7 @@ func createTables() {
 		description TEXT NOT NULL,
 		location TEXT NOT NULL,
 		dateTime DATETIME NOT NULL,
-		user_id INTEGER NOT NULL
+		user_id INTEGER NOT NULL,
 		FOREIGN KEY(user_id) REFERENCES users(id)
 	);
 	`
@@ -49,8 +50,6 @@ func createTables() {
 	createRegistrationsTable := `
 	CREATE TABLE IF NOT EXISTS registrations (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		event_id INTEGER,
-		user_id INTEGER,
 		event_id INTEGER REFERENCES events(id),
 		user_id INTEGER REFERENCES users(id)
 	);

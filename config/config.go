@@ -7,13 +7,13 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type Config struct {
+type Config struct { //global
 	Port      string
 	DBPath    string
 	JWTSecret string
 }
 
-var App Config
+var App Config //global config instance shared across everywhere
 
 func Load() {
 	err := godotenv.Load()

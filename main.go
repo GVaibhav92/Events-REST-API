@@ -11,12 +11,12 @@ import (
 )
 
 func main() {
-	config.Load()
+	config.Load() //load the environment
 
 	db.InitDB()
 	utils.RegisterCustomValidations()
 
-	server := gin.Default()
+	server := gin.Default() //create Gin engine with Logger & Recovery middleware
 
 	server.Use(middleware.Logger())
 	routes.RegisterRoutes(server)

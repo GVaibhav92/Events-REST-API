@@ -16,7 +16,7 @@ type ValidationError struct {
 	Message string `json:"message"`
 }
 
-func ValidateStruct(s interface{}) []ValidationError {
+func ValidateStruct(s any) []ValidationError {
 	var validationErrors []ValidationError
 
 	err := validate.Struct(s)
@@ -49,7 +49,7 @@ func formatValidationError(err validator.FieldError) string {
 	}
 }
 
-// adds any custom rules beyond what the package provides
+// added custom rule beyond what the package provides
 func RegisterCustomValidations() {
 	validate.RegisterValidation("future_date", func(fl validator.FieldLevel) bool {
 		date, ok := fl.Field().Interface().(time.Time)

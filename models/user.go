@@ -3,6 +3,7 @@ package models
 import (
 	"REST-API/db"
 	"REST-API/utils"
+	"database/sql"
 	"errors"
 )
 
@@ -54,7 +55,7 @@ func GetUserByEmail(email string) (*User, error) {
 	var user User
 	err := row.Scan(&user.ID, &user.Email, &user.Password)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
+		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err

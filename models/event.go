@@ -21,7 +21,7 @@ func (e *Event) Save() error {
 	INSERT INTO events(name, description, location, dateTime, user_id) 
 	VALUES (?, ?, ?, ?, ?)
 	`
-
+	//precompiles SQL,prevents SQL injection
 	stmt, err := db.DB.Prepare(query)
 	if err != nil {
 		return err
@@ -38,17 +38,21 @@ func (e *Event) Save() error {
 		return err
 	}
 
-	e.ID = int(id)
+	e.ID = int(id) //DB id assigned to struct
 	return nil
 }
 
 func GetAllEvents(page, limit int) ([]Event, int, error) {
+	//get total number of events in the table
 	countRow := db.DB.QueryRow(`SELECT COUNT(*) FROM events`)
+
 	var total int
 	err := countRow.Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
+	//LIMIT - Maximum number of rows to return
+	// OFFSET - Number of rows to skip before starting
 
 	offset := (page - 1) * limit
 
