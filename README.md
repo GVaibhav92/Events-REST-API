@@ -1,208 +1,231 @@
-# Go Events REST API
+## Go Events REST API
 
-> A production-style REST API built in Go for managing events and user registrations.
-> Designed to demonstrate clean backend architecture, JWT authentication, validation, and testability.
+A production-style REST API built in Go for managing events and user registrations. Designed to demonstrate clean backend architecture, JWT authentication, validation, relational modeling, and secure middleware design.
+
+---
+
+## 📌 Overview
+
+This project implements a layered backend architecture using Go and Gin, supporting:
+
+- User authentication with JWT
+- Secure password hashing (bcrypt)
+- Event CRUD operations
+- Ownership-based authorization
+- Many-to-many event registrations
+- Structured validation
+- Pagination
+- Middleware-driven request lifecycle
+- Clean separation of concerns
+
+---
+
+## 🏗 Architecture
+```
+Client
+   ↓
+Gin Router
+   ↓
+Middleware (Logger / Auth)
+   ↓
+Route Handlers (Controllers)
+   ↓
+Models (Business Logic + DB Queries)
+   ↓
+Database (SQLite)
+```
+
+### Layers
+
+| Directory | Responsibility |
+|---|---|
+| `config/` | Environment configuration |
+| `db/` | Database connection & pooling |
+| `models/` | Business logic & SQL queries |
+| `routes/` | HTTP handlers |
+| `middleware/` | Authentication & logging |
+| `utils/` | JWT, hashing, validation |
+
+This separation ensures maintainability, testability, and scalability.
 
 ---
 
 ## ✨ Features
 
-- 🔐 JWT-based authentication
-- 🛡 Password hashing with bcrypt
-- 🔑 Protected routes using custom middleware
-- 📋 Full CRUD operations for events
-- 👤 Ownership checks — only event creators can update/delete
-- 🗓 Event registration & cancellation
-- 📄 Pagination for scalable listing
-- 🧪 Structured validation using go-playground/validator
-- ⚙️ Environment-based configuration
-- 🧾 Unit tests with Go testing package
-- 🪵 Custom logging middleware (response times + status codes)
+- 🔐 JWT-based stateless authentication
+- 🔑 Secure password hashing with bcrypt
+- 🛡 Protected routes via custom middleware
+- 👤 Ownership enforcement (only creators can modify events)
+- 📋 Full CRUD for events
+- 🔁 Many-to-many event registrations
+- 📄 Pagination support
+- 🧪 Structured validation (`go-playground/validator`)
+- ⚙️ Environment-based configuration (`.env`)
+- 🪵 Custom request logging middleware
+- 🧾 Unit tests using Go's testing package
 
 ---
 
 ## 🛠 Tech Stack
 
 - **Go**
-- **Gin** HTTP framework
-- **SQLite** (modernc.org/sqlite, pure Go)
-- **JWT** authentication
-- **bcrypt** password hashing
+- **Gin** — HTTP framework
+- **SQLite** — `modernc.org/sqlite` (pure Go driver)
+- **JWT** — `github.com/golang-jwt/jwt/v5`
+- **bcrypt** — `golang.org/x/crypto/bcrypt`
 - **go-playground/validator**
-- **godotenv** for env variables
+- **godotenv**
 
 ---
 
-## 🧱 Project Structure
-
+## 📂 Project Structure
 ```
 go-events-api/
-├── api-test/        # Tests for routes and handlers
-├── config/          # Environment setup
-├── db/              # Database connection and setup
+├── api-test/        # Tests
+├── config/          # Environment configuration
+├── db/              # Database initialization & pooling
 ├── middleware/      # Auth & logging middleware
-├── models/          # Database models & queries
-├── routes/          # API route handlers
-├── utils/           # Utils (JWT, validation, hashing)
-├── .gitignore
+├── models/          # Data models & queries
+├── routes/          # HTTP handlers
+├── utils/           # JWT, hashing, validation
 ├── go.mod
 └── main.go
 ```
-
-This structure cleanly separates concerns for maintainability and clarity.
 
 ---
 
 ## 🚀 Getting Started
 
-### 1️⃣ Clone the Repository
-
+### 1. Clone
 ```bash
 git clone https://github.com/GVaibhav92/Events-REST-API.git
 cd Events-REST-API
 ```
 
-### 2️⃣ Install Dependencies
-
+### 2. Install Dependencies
 ```bash
 go mod tidy
 ```
 
-### 3️⃣ Create a `.env` File
-
-```
+### 3. Create `.env`
+```env
 PORT=8080
 DB_PATH=api.db
 JWT_SECRET=your-secret-key
 ```
 
-> ⚠️ Do **not** commit `.env` or any secret values.
+> ⚠️ Never commit `.env` to version control.
 
-### 4️⃣ Run the Server
-
+### 4. Run Server
 ```bash
 go run main.go
 ```
 
-The API will start at:
-
-```
-http://localhost:8080
-```
+Server runs at: `http://localhost:8080`
 
 ---
 
 ## 🔐 Authentication
 
-Protected routes require:
-
-```
-Authorization: Bearer <token>
-```
-
-Token is obtained via:
-
+**Login:**
 ```
 POST /login
 ```
 
+Request body:
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
+
+Response:
+```json
+{
+  "message": "login successful",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+Use the token in the request header:
+```
+Authorization: <token>
+```
+
+> If updated to Bearer format: `Authorization: Bearer <token>`
+
 ---
 
-## 📌 API Overview
+## 📌 API Endpoints
 
 | Method | Route | Description | Protected |
-|--------|-------|-------------|-----------|
-| POST | `/signup` | Create a new user | ❌ |
-| POST | `/login` | Login a user | ❌ |
-| GET | `/events` | List events (paginated) | ❌ |
-| GET | `/events/:id` | Get a specific event | ❌ |
-| POST | `/events` | Create event | ✅ |
-| PUT | `/events/:id` | Update event | ✅ |
-| DELETE | `/events/:id` | Delete event | ✅ |
-| POST | `/events/:id/register` | Register for event | ✅ |
-| DELETE | `/events/:id/register` | Cancel registration | ✅ |
+|---|---|---|---|
+| `POST` | `/signup` | Create user | ❌ |
+| `POST` | `/login` | Login user | ❌ |
+| `GET` | `/events` | List events | ❌ |
+| `GET` | `/events/:id` | Get event | ❌ |
+| `POST` | `/events` | Create event | ✅ |
+| `PUT` | `/events/:id` | Update event | ✅ |
+| `DELETE` | `/events/:id` | Delete event | ✅ |
+| `POST` | `/events/:id/register` | Register for event | ✅ |
+| `DELETE` | `/events/:id/register` | Cancel registration | ✅ |
 
 ---
 
 ## 📄 Pagination
-
-Supports:
-
 ```
 GET /events?page=1&limit=10
 ```
 
-Response includes:
-
-- total records
-- current page
-- total pages
-- limit
+Response includes: `data`, `total`, `page`, `limit`, `totalPages`
 
 ---
 
-## 🛡 Validation Rules
+## 🛡 Security Features
 
-- **email** — required, valid email format
-- **password** — required, 6–72 characters
-- **event name** — required, 3–100 characters
-- **event description** — required, 10–500 characters
-- **event location** — required, 3–100 characters
-- **event dateTime** — must be a future date
-
-Validation errors return a structured JSON response.
-
----
-
-## 📦 Error Format
-
-**Standard Error:**
-```json
-{
-  "message": "description of what went wrong"
-}
-```
-
-**Validation Error:**
-```json
-{
-  "message": "validation failed",
-  "errors": [
-    { "field": "name", "message": "must be at least 3 characters" }
-  ]
-}
-```
+- Passwords hashed with bcrypt
+- JWT signed using HMAC SHA256
+- Token expiration enforced
+- Ownership validation on updates/deletes
+- Foreign key constraints enabled
+- Duplicate registration prevention
 
 ---
 
 ## 🧪 Testing
-
-Run all tests:
-
 ```bash
 go test ./...
 ```
 
+---
+
 ## 🔮 Future Improvements
 
 - PostgreSQL migration
-- Refresh token support
-- OAuth login
-- API rate limiting
-- Containerization (Docker)
-- gRPC microservices
+- Refresh tokens
+- Role-based access control
+- Rate limiting middleware
+- Docker support
 - Redis caching
+- CI/CD integration
+- API documentation with Swagger
 
 ---
 
-## 📌 Why This Project
+## 🎯 Purpose
 
-Built to understand:
+Built to deeply understand:
 
-- Backend architecture in Go
-- Middleware design
-- Auth flows & secure routes
-- Database modeling with ownership
-- Testable and maintainable code
+- Backend system architecture in Go
+- Middleware lifecycle
+- Stateless authentication
+- Database modeling & relationships
+- Secure API design
+- Testable, modular backend structure
 
 ---
+
+## 📜 License
+
+MIT License
