@@ -140,8 +140,12 @@ func updateEvent(context *gin.Context) {
 		return
 	}
 
-	userID, _ := context.Get("userId")
-	if existingEvent.UserID != userID.(int) {
+	//Check if user is owner OR admin
+	userID := context.GetInt("userId")
+	role := context.GetString("role")
+
+	// Only owner or admin can update
+	if existingEvent.UserID != userID && role != "admin" {
 		context.JSON(http.StatusForbidden, gin.H{
 			"message": "you are not authorized to update this event",
 		})
@@ -205,9 +209,12 @@ func deleteEvent(context *gin.Context) {
 		return
 	}
 
-	// the logged in user owns this event
-	userID, _ := context.Get("userId")
-	if existingEvent.UserID != userID.(int) {
+	// RBAC: Check if user is owner OR admin
+	userID := context.GetInt("userId")
+	role := context.GetString("role")
+
+	// Only owner or admin can delete
+	if existingEvent.UserID != userID && role != "admin" {
 		context.JSON(http.StatusForbidden, gin.H{
 			"message": "you are not authorized to delete this event",
 		})

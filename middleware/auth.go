@@ -17,7 +17,7 @@ func Authenticate(context *gin.Context) {
 		return
 	}
 
-	userID, err := utils.VerifyToken(token)
+	userID, role, err := utils.VerifyToken(token)
 	if err != nil {
 		context.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 			"message": "invalid or expired token",
@@ -26,6 +26,7 @@ func Authenticate(context *gin.Context) {
 	}
 
 	context.Set("userId", userID)
+	context.Set("role", role)
 
 	context.Next()
 }

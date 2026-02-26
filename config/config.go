@@ -3,17 +3,20 @@ package config
 import (
 	"log"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
-type Config struct { //global
-	Port      string
-	DBPath    string
-	JWTSecret string
+type Config struct {
+	Port               string
+	DBPath             string
+	JWTSecret          string
+	AccessTokenExpiry  time.Duration
+	RefreshTokenExpiry time.Duration
 }
 
-var App Config //global config instance shared across everywhere
+var App Config
 
 func Load() {
 	err := godotenv.Load()
@@ -22,12 +25,13 @@ func Load() {
 	}
 
 	App = Config{
-		Port:      getEnv("PORT", "8080"),
-		DBPath:    getEnv("DB_PATH", "api.db"),
-		JWTSecret: getEnv("JWT_SECRET", ""),
+		Port:               getEnv("PORT", "8080"),
+		DBPath:             getEnv("DB_PATH", "api.db"),
+		JWTSecret:          getEnv("JWT_SECRET", ""),
+		AccessTokenExpiry:  parseDuration("ACCESS_TOKEN_EXPIRY", "15m"),
+		RefreshTokenExpiry: parseDuration("REFRESH_TOKEN_EXPIRY", "168h"),
 	}
 
-	// jwt secret is critical
 	if App.JWTSecret == "" {
 		log.Fatal("JWT_SECRET environment variable is required")
 	}
@@ -39,4 +43,15 @@ func getEnv(key, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+// helper to parse duration strings like "15m" or "168h"
+func parseDuration(key, defaultValue string) time.Duration {
+	value := getEnv(key, defaultValue)
+	duration, err := time.ParseDuration(value)
+	if err != nil {
+		log.Printf("Invalid duration for %s, using default %s", key, defaultValue)
+		duration, _ = time.ParseDuration(defaultValue)
+	}
+	return duration
 }

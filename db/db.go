@@ -44,7 +44,8 @@ func createTables() {
 	CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		email TEXT NOT NULL UNIQUE,
-		password TEXT NOT NULL
+		password TEXT NOT NULL,
+		role TEXT NOT NULL DEFAULT 'user'
 	);
 	`
 	createRegistrationsTable := `
@@ -52,6 +53,16 @@ func createTables() {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		event_id INTEGER REFERENCES events(id),
 		user_id INTEGER REFERENCES users(id)
+	);
+	`
+	createRefreshTokensTable := `
+	CREATE TABLE IF NOT EXISTS refresh_tokens (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		token TEXT NOT NULL UNIQUE,
+		user_id INTEGER NOT NULL,
+		expires_at DATETIME NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 	);
 	`
 
@@ -67,5 +78,9 @@ func createTables() {
 	_, err = DB.Exec(createRegistrationsTable)
 	if err != nil {
 		panic("Could not create registrations table: " + err.Error())
+	}
+	_, err = DB.Exec(createRefreshTokensTable)
+	if err != nil {
+		panic("Could not create refresh tokens table: " + err.Error())
 	}
 }
