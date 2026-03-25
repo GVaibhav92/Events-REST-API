@@ -9,9 +9,27 @@ import (
 
 func Logger() gin.HandlerFunc {
 	return func(context *gin.Context) {
+		requestID := GetRequestID(context)
+
+		shortRequestID := requestID
+		if len(requestID) > 8 {
+			shortRequestID = requestID[:8]
+		}
+
 		start := time.Now()
 		method := context.Request.Method
 		path := context.Request.URL.Path
+
+		// Log request start
+		methodColor := colorForMethod(method)
+		reset := "\033[0m"
+		requestIDColor := "\033[36m" //cyan
+
+		fmt.Printf("[%s%s%s] --> %s%s%s %s\n",
+			requestIDColor, shortRequestID, reset,
+			methodColor, method, reset,
+			path,
+		)
 
 		context.Next()
 
@@ -19,13 +37,11 @@ func Logger() gin.HandlerFunc {
 		duration := time.Since(start)
 		clientIP := context.ClientIP()
 
-		// color code the status
 		statusColor := colorForStatus(status)
-		methodColor := colorForMethod(method)
-		reset := "\033[0m"
 
-		fmt.Printf("[API] %v | %s%d%s | %v | %s | %s%s%s %s\n",
-			time.Now().Format("2006/01/02 - 15:04:05"),
+		// Log request completion
+		fmt.Printf("[%s%s%s] <-- %s%d%s | %v | %s | %s%s%s %s\n",
+			requestIDColor, shortRequestID, reset,
 			statusColor, status, reset,
 			duration,
 			clientIP,
@@ -51,7 +67,7 @@ func colorForStatus(status int) string {
 func colorForMethod(method string) string {
 	switch method {
 	case "GET":
-		return "\033[34m" //blue
+		return "\033[34m" // blue
 	case "POST":
 		return "\033[32m" // green
 	case "PUT":

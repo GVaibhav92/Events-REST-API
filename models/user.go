@@ -4,6 +4,7 @@ import (
 	"REST-API/config"
 	"REST-API/db"
 	"REST-API/utils"
+	"context"
 	"database/sql"
 	"errors"
 	"time"
@@ -16,8 +17,8 @@ type User struct {
 	Role     string `json:"role"`
 }
 
-func (u *User) Save() error {
-	existingUser, err := GetUserByEmail(u.Email)
+func (u *User) Save(ctx context.Context) error {
+	existingUser, err := GetUserByEmail(ctx, u.Email)
 	if err != nil {
 		return err
 	}
@@ -31,14 +32,15 @@ func (u *User) Save() error {
 	}
 
 	query := `INSERT INTO users(email, password, role) VALUES (?, ?, ?)`
-	stmt, err := db.DB.Prepare(query)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
 
-	result, err := stmt.Exec(u.Email, string(hashedPassword), "user")
+	result, err := db.DB.ExecContext(ctx, query, u.Email, string(hashedPassword), "user")
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.New("request timeout while creating user")
+		}
+		if ctx.Err() == context.Canceled {
+			return errors.New("request was canceled while creating user")
+		}
 		return err
 	}
 
@@ -52,9 +54,10 @@ func (u *User) Save() error {
 	return nil
 }
 
-func GetUserByEmail(email string) (*User, error) {
+func GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	query := `SELECT id, email, password, role FROM users WHERE email = ?`
-	row := db.DB.QueryRow(query, email)
+
+	row := db.DB.QueryRowContext(ctx, query, email)
 
 	var user User
 	err := row.Scan(&user.ID, &user.Email, &user.Password, &user.Role)
@@ -62,14 +65,17 @@ func GetUserByEmail(email string) (*User, error) {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, errors.New("request timeout while fetching user")
+		}
 		return nil, err
 	}
 
 	return &user, nil
 }
 
-func (u *User) ValidateCredentials() error {
-	existingUser, err := GetUserByEmail(u.Email)
+func (u *User) ValidateCredentials(ctx context.Context) error {
+	existingUser, err := GetUserByEmail(ctx, u.Email)
 	if err != nil {
 		return err
 	}
@@ -89,19 +95,26 @@ func (u *User) ValidateCredentials() error {
 }
 
 // stores a refresh token in the database
-func (u *User) SaveRefreshToken(token string) error {
+func (u *User) SaveRefreshToken(ctx context.Context, token string) error {
 	expiresAt := time.Now().Add(config.App.RefreshTokenExpiry)
 
 	query := `INSERT INTO refresh_tokens(token, user_id, expires_at) VALUES (?, ?, ?)`
-	_, err := db.DB.Exec(query, token, u.ID, expiresAt)
 
-	return err
+	_, err := db.DB.ExecContext(ctx, query, token, u.ID, expiresAt)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.New("request timeout while saving refresh token")
+		}
+		return err
+	}
+
+	return nil
 }
 
 // checks if token exists, not expired
-func ValidateRefreshToken(token string) (*User, error) {
+func ValidateRefreshToken(ctx context.Context, token string) (*User, error) {
 	query := `
-		SELECT u.id, u.email, u.password,u.role,rt.expires_at
+		SELECT u.id, u.email, u.password, u.role, rt.expires_at
 		FROM users u
 		INNER JOIN refresh_tokens rt ON u.id = rt.user_id
 		WHERE rt.token = ?
@@ -110,10 +123,13 @@ func ValidateRefreshToken(token string) (*User, error) {
 	var user User
 	var expiresAt time.Time
 
-	err := db.DB.QueryRow(query, token).Scan(&user.ID, &user.Email, &user.Password, &user.Role, &expiresAt)
+	err := db.DB.QueryRowContext(ctx, query, token).Scan(&user.ID, &user.Email, &user.Password, &user.Role, &expiresAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.New("invalid refresh token")
+		}
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, errors.New("request timeout while validating refresh token")
 		}
 		return nil, err
 	}
@@ -127,23 +143,39 @@ func ValidateRefreshToken(token string) (*User, error) {
 }
 
 // removes a specific refresh token (for logout)
-func DeleteRefreshToken(token string) error {
+func DeleteRefreshToken(ctx context.Context, token string) error {
 	query := `DELETE FROM refresh_tokens WHERE token = ?`
-	_, err := db.DB.Exec(query, token)
-	return err
+
+	_, err := db.DB.ExecContext(ctx, query, token)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.New("request timeout while deleting refresh token")
+		}
+		return err
+	}
+
+	return nil
 }
 
 // removes all refresh tokens for a user (for logout from all devices)
-func (u *User) DeleteAllRefreshTokens() error {
+func (u *User) DeleteAllRefreshTokens(ctx context.Context) error {
 	query := `DELETE FROM refresh_tokens WHERE user_id = ?`
-	_, err := db.DB.Exec(query, u.ID)
-	return err
+
+	_, err := db.DB.ExecContext(ctx, query, u.ID)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.New("request timeout while deleting refresh tokens")
+		}
+		return err
+	}
+
+	return nil
 }
 
 // invalidates old token and creates a new one
-func (u *User) RotateRefreshToken(oldToken string) (string, error) {
+func (u *User) RotateRefreshToken(ctx context.Context, oldToken string) (string, error) {
 	// Delete the old token
-	err := DeleteRefreshToken(oldToken)
+	err := DeleteRefreshToken(ctx, oldToken)
 	if err != nil {
 		return "", err
 	}
@@ -154,7 +186,7 @@ func (u *User) RotateRefreshToken(oldToken string) (string, error) {
 		return "", err
 	}
 
-	err = u.SaveRefreshToken(newToken)
+	err = u.SaveRefreshToken(ctx, newToken)
 	if err != nil {
 		return "", err
 	}

@@ -2,6 +2,7 @@ package models
 
 import (
 	"REST-API/db"
+	"context"
 	"errors"
 )
 
@@ -11,8 +12,8 @@ type Registration struct {
 	UserID  int `json:"userId"`
 }
 
-func (r *Registration) Save() error {
-	event, err := GetEventByID(r.EventID)
+func (r *Registration) Save(ctx context.Context) error {
+	event, err := GetEventByID(ctx, r.EventID)
 	if err != nil {
 		return err
 	}
@@ -20,7 +21,7 @@ func (r *Registration) Save() error {
 		return errors.New("event not found")
 	}
 
-	alreadyRegistered, err := IsUserRegistered(r.EventID, r.UserID)
+	alreadyRegistered, err := IsUserRegistered(ctx, r.EventID, r.UserID)
 	if err != nil {
 		return err
 	}
@@ -29,14 +30,15 @@ func (r *Registration) Save() error {
 	}
 
 	query := `INSERT INTO registrations(event_id, user_id) VALUES (?, ?)`
-	stmt, err := db.DB.Prepare(query)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
 
-	result, err := stmt.Exec(r.EventID, r.UserID)
+	result, err := db.DB.ExecContext(ctx, query, r.EventID, r.UserID)
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.New("request timeout while registering for event")
+		}
+		if ctx.Err() == context.Canceled {
+			return errors.New("request was canceled while registering for event")
+		}
 		return err
 	}
 
@@ -49,8 +51,8 @@ func (r *Registration) Save() error {
 	return nil
 }
 
-func (r *Registration) Cancel() error {
-	event, err := GetEventByID(r.EventID)
+func (r *Registration) Cancel(ctx context.Context) error {
+	event, err := GetEventByID(ctx, r.EventID)
 	if err != nil {
 		return err
 	}
@@ -58,7 +60,7 @@ func (r *Registration) Cancel() error {
 		return errors.New("event not found")
 	}
 
-	alreadyRegistered, err := IsUserRegistered(r.EventID, r.UserID)
+	alreadyRegistered, err := IsUserRegistered(ctx, r.EventID, r.UserID)
 	if err != nil {
 		return err
 	}
@@ -67,23 +69,32 @@ func (r *Registration) Cancel() error {
 	}
 
 	query := `DELETE FROM registrations WHERE event_id = ? AND user_id = ?`
-	stmt, err := db.DB.Prepare(query)
+
+	_, err = db.DB.ExecContext(ctx, query, r.EventID, r.UserID)
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.New("request timeout while canceling registration")
+		}
+		if ctx.Err() == context.Canceled {
+			return errors.New("request was canceled while canceling registration")
+		}
 		return err
 	}
-	defer stmt.Close()
 
-	_, err = stmt.Exec(r.EventID, r.UserID)
-	return err
+	return nil
 }
 
-func IsUserRegistered(eventID, userID int) (bool, error) {
+func IsUserRegistered(ctx context.Context, eventID, userID int) (bool, error) {
 	query := `SELECT COUNT(*) FROM registrations WHERE event_id = ? AND user_id = ?`
-	row := db.DB.QueryRow(query, eventID, userID)
+
+	row := db.DB.QueryRowContext(ctx, query, eventID, userID)
 
 	var count int
 	err := row.Scan(&count)
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return false, errors.New("request timeout while checking registration")
+		}
 		return false, err
 	}
 

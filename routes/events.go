@@ -29,10 +29,12 @@ func getEvents(context *gin.Context) {
 		return
 	}
 
-	events, total, err := models.GetAllEvents(page, limit)
+	// Pass request context to model
+	events, total, err := models.GetAllEvents(context.Request.Context(), page, limit)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": "could not fetch events!",
+			"error":   err.Error(),
 		})
 		return
 	}
@@ -56,10 +58,12 @@ func getEvent(context *gin.Context) {
 		return
 	}
 
-	event, err := models.GetEventByID(id)
+	// Pass request context to model
+	event, err := models.GetEventByID(context.Request.Context(), id)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": "could not fetch event!",
+			"error":   err.Error(),
 		})
 		return
 	}
@@ -102,10 +106,12 @@ func createEvent(context *gin.Context) {
 	}
 	event.UserID = userID.(int)
 
-	err = event.Save()
+	// Pass request context to model
+	err = event.Save(context.Request.Context())
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": "could not create event!",
+			"error":   err.Error(),
 		})
 		return
 	}
@@ -126,10 +132,12 @@ func updateEvent(context *gin.Context) {
 		return
 	}
 
-	existingEvent, err := models.GetEventByID(id)
+	// Pass request context to model
+	existingEvent, err := models.GetEventByID(context.Request.Context(), id)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": "could not fetch event!",
+			"error":   err.Error(),
 		})
 		return
 	}
@@ -140,7 +148,7 @@ func updateEvent(context *gin.Context) {
 		return
 	}
 
-	//Check if user is owner OR admin
+	// Check if user is owner OR admin
 	userID := context.GetInt("userId")
 	role := context.GetString("role")
 
@@ -171,10 +179,12 @@ func updateEvent(context *gin.Context) {
 	}
 
 	updatedEvent.ID = id
-	err = updatedEvent.Update()
+	// Pass request context to model
+	err = updatedEvent.Update(context.Request.Context())
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": "could not update event!",
+			"error":   err.Error(),
 		})
 		return
 	}
@@ -195,10 +205,12 @@ func deleteEvent(context *gin.Context) {
 		return
 	}
 
-	existingEvent, err := models.GetEventByID(id)
+	// Pass request context to model
+	existingEvent, err := models.GetEventByID(context.Request.Context(), id)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": "could not fetch event!",
+			"error":   err.Error(),
 		})
 		return
 	}
@@ -221,10 +233,12 @@ func deleteEvent(context *gin.Context) {
 		return
 	}
 
-	err = existingEvent.Delete()
+	// Pass request context to model
+	err = existingEvent.Delete(context.Request.Context())
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": "could not delete event!",
+			"error":   err.Error(),
 		})
 		return
 	}

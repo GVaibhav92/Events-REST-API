@@ -2,7 +2,9 @@ package models
 
 import (
 	"REST-API/db"
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -16,20 +18,20 @@ type Event struct {
 	UserID      int       `json:"userId"`
 }
 
-func (e *Event) Save() error {
+func (e *Event) Save(ctx context.Context) error {
 	query := `
 	INSERT INTO events(name, description, location, dateTime, user_id) 
 	VALUES (?, ?, ?, ?, ?)
 	`
-	//precompiles SQL,prevents SQL injection
-	stmt, err := db.DB.Prepare(query)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
+	result, err := db.DB.ExecContext(ctx, query, e.Name, e.Description, e.Location, e.DateTime, e.UserID)
 
-	result, err := stmt.Exec(e.Name, e.Description, e.Location, e.DateTime, e.UserID)
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.New("request timeout while saving event")
+		}
+		if ctx.Err() == context.Canceled {
+			return errors.New("request was canceled while saving event")
+		}
 		return err
 	}
 
@@ -38,27 +40,31 @@ func (e *Event) Save() error {
 		return err
 	}
 
-	e.ID = int(id) //DB id assigned to struct
+	e.ID = int(id)
 	return nil
 }
 
-func GetAllEvents(page, limit int) ([]Event, int, error) {
-	//get total number of events in the table
-	countRow := db.DB.QueryRow(`SELECT COUNT(*) FROM events`)
+func GetAllEvents(ctx context.Context, page, limit int) ([]Event, int, error) {
 
 	var total int
-	err := countRow.Scan(&total)
+	countQuery := `SELECT COUNT(*) FROM events`
+
+	err := db.DB.QueryRowContext(ctx, countQuery).Scan(&total)
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, 0, errors.New("request timeout while counting events")
+		}
 		return nil, 0, err
 	}
-	//LIMIT - Maximum number of rows to return
-	// OFFSET - Number of rows to skip before starting
 
 	offset := (page - 1) * limit
 
-	query := `SELECT * FROM events LIMIT ? OFFSET ?`
-	rows, err := db.DB.Query(query, limit, offset)
+	query := `SELECT id, name, description, location, dateTime, user_id FROM events LIMIT ? OFFSET ?`
+	rows, err := db.DB.QueryContext(ctx, query, limit, offset)
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, 0, errors.New("request timeout while fetching events")
+		}
 		return nil, 0, err
 	}
 	defer rows.Close()
@@ -87,10 +93,10 @@ func GetAllEvents(page, limit int) ([]Event, int, error) {
 	return events, total, nil
 }
 
-func GetEventByID(id int) (*Event, error) {
-	query := `SELECT * FROM events WHERE id = ?`
+func GetEventByID(ctx context.Context, id int) (*Event, error) {
+	query := `SELECT id, name, description, location, dateTime, user_id FROM events WHERE id = ?`
 
-	row := db.DB.QueryRow(query, id)
+	row := db.DB.QueryRowContext(ctx, query, id)
 
 	var event Event
 	err := row.Scan(
@@ -106,27 +112,30 @@ func GetEventByID(id int) (*Event, error) {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, errors.New("request timeout while fetching event")
+		}
 		return nil, err
 	}
 
 	return &event, nil
 }
 
-func (event Event) Update() error {
+func (event Event) Update(ctx context.Context) error {
 	query := `
 	UPDATE events
 	SET name = ?, description = ?, location = ?, dateTime = ?
 	WHERE id = ?
 	`
 
-	stmt, err := db.DB.Prepare(query)
+	result, err := db.DB.ExecContext(ctx, query, event.Name, event.Description, event.Location, event.DateTime, event.ID)
 	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	result, err := stmt.Exec(event.Name, event.Description, event.Location, event.DateTime, event.ID)
-	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.New("request timeout while updating event")
+		}
+		if ctx.Err() == context.Canceled {
+			return errors.New("request was canceled while updating event")
+		}
 		return err
 	}
 
@@ -142,17 +151,17 @@ func (event Event) Update() error {
 	return nil
 }
 
-func (event Event) Delete() error {
+func (event Event) Delete(ctx context.Context) error {
 	query := `DELETE FROM events WHERE id = ?`
 
-	stmt, err := db.DB.Prepare(query)
+	result, err := db.DB.ExecContext(ctx, query, event.ID)
 	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	result, err := stmt.Exec(event.ID)
-	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.New("request timeout while deleting event")
+		}
+		if ctx.Err() == context.Canceled {
+			return errors.New("request was canceled while deleting event")
+		}
 		return err
 	}
 

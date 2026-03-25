@@ -14,6 +14,7 @@ type Config struct {
 	JWTSecret          string
 	AccessTokenExpiry  time.Duration
 	RefreshTokenExpiry time.Duration
+	RequestTimeout     time.Duration
 }
 
 var App Config
@@ -30,6 +31,7 @@ func Load() {
 		JWTSecret:          getEnv("JWT_SECRET", ""),
 		AccessTokenExpiry:  parseDuration("ACCESS_TOKEN_EXPIRY", "15m"),
 		RefreshTokenExpiry: parseDuration("REFRESH_TOKEN_EXPIRY", "168h"),
+		RequestTimeout:     parseDuration("REQUEST_TIMEOUT", "30s"),
 	}
 
 	if App.JWTSecret == "" {

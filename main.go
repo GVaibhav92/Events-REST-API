@@ -11,14 +11,17 @@ import (
 )
 
 func main() {
-	config.Load() //load the environment
+	config.Load()
 
 	db.InitDB()
 	utils.RegisterCustomValidations()
 
-	server := gin.Default() //create Gin engine with Logger & Recovery middleware
+	server := gin.Default()
 
+	server.Use(middleware.RequestID)
+	server.Use(middleware.Timeout(config.App.RequestTimeout))
 	server.Use(middleware.Logger())
+
 	routes.RegisterRoutes(server)
 
 	server.Run(":" + config.App.Port)

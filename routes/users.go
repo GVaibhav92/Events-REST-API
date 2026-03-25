@@ -27,7 +27,7 @@ func signup(context *gin.Context) {
 		return
 	}
 
-	err = user.Save()
+	err = user.Save(context.Request.Context())
 	if err != nil {
 		if err.Error() == "email already registered" {
 			context.JSON(http.StatusConflict, gin.H{
@@ -71,7 +71,7 @@ func login(context *gin.Context) {
 		return
 	}
 
-	err = user.ValidateCredentials()
+	err = user.ValidateCredentials(context.Request.Context())
 	if err != nil {
 		context.JSON(http.StatusUnauthorized, gin.H{
 			"message": "invalid credentials",
@@ -98,7 +98,7 @@ func login(context *gin.Context) {
 	}
 
 	// Save refresh token to database
-	err = user.SaveRefreshToken(refreshToken)
+	err = user.SaveRefreshToken(context.Request.Context(), refreshToken)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": "could not save refresh token",
@@ -129,7 +129,7 @@ func refreshToken(context *gin.Context) {
 	}
 
 	// Validate the refresh token and get the associated user
-	user, err := models.ValidateRefreshToken(request.RefreshToken)
+	user, err := models.ValidateRefreshToken(context.Request.Context(), request.RefreshToken)
 	if err != nil {
 		context.JSON(http.StatusUnauthorized, gin.H{
 			"message": err.Error(),
@@ -147,7 +147,7 @@ func refreshToken(context *gin.Context) {
 	}
 
 	// Rotate the refresh token
-	newRefreshToken, err := user.RotateRefreshToken(request.RefreshToken)
+	newRefreshToken, err := user.RotateRefreshToken(context.Request.Context(), request.RefreshToken)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": "could not rotate refresh token",
@@ -177,7 +177,7 @@ func logout(context *gin.Context) {
 	}
 
 	// Delete the refresh token from database
-	err = models.DeleteRefreshToken(request.RefreshToken)
+	err = models.DeleteRefreshToken(context.Request.Context(), request.RefreshToken)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": "could not logout",

@@ -24,7 +24,7 @@ func registerForEvent(context *gin.Context) {
 		UserID:  userID.(int),
 	}
 
-	err = registration.Save()
+	err = registration.Save(context.Request.Context())
 	if err != nil {
 		if err.Error() == "event not found" {
 			context.JSON(http.StatusNotFound, gin.H{
@@ -70,7 +70,7 @@ func cancelRegistration(context *gin.Context) {
 		UserID:  userID.(int),
 	}
 
-	err = registration.Cancel()
+	err = registration.Cancel(context.Request.Context())
 	if err != nil {
 		if err.Error() == "event not found" {
 			context.JSON(http.StatusNotFound, gin.H{
