@@ -8,14 +8,16 @@ A production-style REST API built in Go for managing events and user registratio
 
 This project implements a layered backend architecture using Go and Gin, supporting:
 
-- User authentication with JWT
+- User authentication with JWT access tokens and refresh token rotation
 - Secure password hashing (bcrypt)
-- Event CRUD operations
-- Ownership-based authorization
-- Many-to-many event registrations
-- Structured validation
+- Role-based access control (RBAC)
+- Event CRUD operations with ownership enforcement
+- Many-to-many event registrations with duplicate prevention
+- Structured request validation
 - Pagination
-- Middleware-driven request lifecycle
+- Middleware-driven request lifecycle with per-request timeout
+- Context cancellation propagated through the full request stack
+- Graceful server shutdown with active-request draining
 - Clean separation of concerns
 
 ---
@@ -26,7 +28,7 @@ Client
    ↓
 Gin Router
    ↓
-Middleware (Logger / Auth)
+Middleware (RequestID / Timeout / Logger / Auth / RBAC)
    ↓
 Route Handlers (Controllers)
    ↓
@@ -43,7 +45,7 @@ Database (SQLite)
 | `db/` | Database connection & pooling |
 | `models/` | Business logic & SQL queries |
 | `routes/` | HTTP handlers |
-| `middleware/` | Authentication & logging |
+| `middleware/` | Authentication, RBAC, timeout & logging |
 | `utils/` | JWT, hashing, validation |
 
 This separation ensures maintainability, testability, and scalability.
@@ -52,17 +54,21 @@ This separation ensures maintainability, testability, and scalability.
 
 ## ✨ Features
 
-- 🔐 JWT-based stateless authentication
+- 🔐 JWT-based stateless authentication (access token + refresh token rotation)
 - 🔑 Secure password hashing with bcrypt
-- 🛡 Protected routes via custom middleware
-- 👤 Ownership enforcement (only creators can modify events)
+- 🛡 Protected routes via custom middleware stack (RequestID → Timeout → Logger → Auth)
+- 🎭 Role-based access control — admin and user roles enforced at middleware and handler level
+- 👤 Ownership enforcement — only the event creator or an admin can update or delete
 - 📋 Full CRUD for events
-- 🔁 Many-to-many event registrations
-- 📄 Pagination support
-- 🧪 Structured validation (`go-playground/validator`)
-- ⚙️ Environment-based configuration (`.env`)
-- 🪵 Custom request logging middleware
-- 🧾 Unit tests using Go's testing package
+- 🔁 Many-to-many event registrations with DB-level duplicate prevention (`UNIQUE` constraint)
+- 📄 Pagination with `page` and `limit` query params; response includes `total` and `totalPages`
+- 🧪 Structured request validation (`go-playground/validator`) with custom `future_date` rule
+- ⏱ Per-request timeout middleware with configurable duration (default 30s)
+- 🔗 Full context cancellation propagation — request context flows from handler → model → DB
+- 🛑 Graceful shutdown — drains active requests (10s window), then closes DB connection
+- ⚙️ Environment-based configuration via `.env`
+- 🪵 Custom request logging middleware with colored output and per-request ID tracing
+- 🧾 Unit tests using Go's standard `testing` package
 
 ---
 
@@ -144,16 +150,27 @@ Response:
 ```json
 {
   "message": "login successful",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "a3f8c2d1e4b7..."
 }
 ```
 
-Use the token in the request header:
+Use the access token in the request header:
 ```
-Authorization: <token>
+Authorization: <access_token>
 ```
 
-> If updated to Bearer format: `Authorization: Bearer <token>`
+**Refresh the access token:**
+```
+POST /auth/refresh
+{ "refresh_token": "<refresh_token>" }
+```
+
+**Logout (invalidates refresh token):**
+```
+POST /auth/logout
+{ "refresh_token": "<refresh_token>" }
+```
 
 ---
 
@@ -162,12 +179,14 @@ Authorization: <token>
 | Method | Route | Description | Protected |
 |---|---|---|---|
 | `POST` | `/signup` | Create user | ❌ |
-| `POST` | `/login` | Login user | ❌ |
-| `GET` | `/events` | List events | ❌ |
-| `GET` | `/events/:id` | Get event | ❌ |
+| `POST` | `/login` | Login — returns access + refresh token | ❌ |
+| `POST` | `/auth/refresh` | Rotate refresh token | ❌ |
+| `POST` | `/auth/logout` | Invalidate refresh token | ❌ |
+| `GET` | `/events` | List events (paginated) | ❌ |
+| `GET` | `/events/:id` | Get event by ID | ❌ |
 | `POST` | `/events` | Create event | ✅ |
-| `PUT` | `/events/:id` | Update event | ✅ |
-| `DELETE` | `/events/:id` | Delete event | ✅ |
+| `PUT` | `/events/:id` | Update event (owner or admin) | ✅ |
+| `DELETE` | `/events/:id` | Delete event (owner or admin) | ✅ |
 | `POST` | `/events/:id/register` | Register for event | ✅ |
 | `DELETE` | `/events/:id/register` | Cancel registration | ✅ |
 
@@ -185,11 +204,13 @@ Response includes: `data`, `total`, `page`, `limit`, `totalPages`
 ## 🛡 Security Features
 
 - Passwords hashed with bcrypt
-- JWT signed using HMAC SHA256
-- Token expiration enforced
-- Ownership validation on updates/deletes
-- Foreign key constraints enabled
-- Duplicate registration prevention
+- JWT access tokens signed with HMAC SHA256; expiry enforced on every request
+- Refresh token rotation — old token invalidated on every refresh
+- Role-based access control enforced at middleware and handler level
+- Ownership validation on event updates and deletes
+- Foreign key constraints enabled in SQLite
+- Duplicate registration prevention enforced at the database level (`UNIQUE` constraint)
+- Per-request context cancellation prevents hanging DB operations on client disconnect
 
 ---
 
@@ -203,8 +224,6 @@ go test ./...
 ## 🔮 Future Improvements
 
 - PostgreSQL migration
-- Refresh tokens
-- Role-based access control
 - Rate limiting middleware
 - Docker support
 - Redis caching
@@ -218,10 +237,12 @@ go test ./...
 Built to deeply understand:
 
 - Backend system architecture in Go
-- Middleware lifecycle
-- Stateless authentication
-- Database modeling & relationships
-- Secure API design
+- Middleware lifecycle and context propagation
+- Stateless authentication with token rotation
+- Role-based authorization patterns
+- Database modeling, constraints, and relationships
+- Secure and production-correct API design
+- Graceful shutdown and resource cleanup
 - Testable, modular backend structure
 
 ---
