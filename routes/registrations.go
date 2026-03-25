@@ -1,96 +1,106 @@
-package routes
+package models
 
 import (
-	"REST-API/models"
-	"net/http"
-	"strconv"
-
-	"github.com/gin-gonic/gin"
+	"REST-API/db"
+	"context"
+	"errors"
+	"strings"
 )
 
-func registerForEvent(context *gin.Context) {
-	userID, _ := context.Get("userId")
-
-	eventID, err := strconv.Atoi(context.Param("id"))
-	if err != nil {
-		context.JSON(http.StatusBadRequest, gin.H{
-			"message": "invalid event ID",
-		})
-		return
-	}
-
-	registration := models.Registration{
-		EventID: eventID,
-		UserID:  userID.(int),
-	}
-
-	err = registration.Save(context.Request.Context())
-	if err != nil {
-		if err.Error() == "event not found" {
-			context.JSON(http.StatusNotFound, gin.H{
-				"message": "event not found",
-			})
-			return
-		}
-		if err.Error() == "already registered for this event" {
-			context.JSON(http.StatusConflict, gin.H{
-				"message": "you are already registered for this event",
-			})
-			return
-		}
-		context.JSON(http.StatusInternalServerError, gin.H{
-			"message": "could not register for event",
-		})
-		return
-	}
-
-	context.JSON(http.StatusCreated, gin.H{
-		"message": "successfully registered for event",
-		"registration": gin.H{
-			"id":      registration.ID,
-			"eventId": registration.EventID,
-			"userId":  registration.UserID,
-		},
-	})
+type Registration struct {
+	ID      int `json:"id"`
+	EventID int `json:"eventId"`
+	UserID  int `json:"userId"`
 }
 
-func cancelRegistration(context *gin.Context) {
-	userID, _ := context.Get("userId")
-
-	eventID, err := strconv.Atoi(context.Param("id"))
+func (r *Registration) Save(ctx context.Context) error {
+	event, err := GetEventByID(ctx, r.EventID)
 	if err != nil {
-		context.JSON(http.StatusBadRequest, gin.H{
-			"message": "invalid event ID",
-		})
-		return
+		return err
+	}
+	if event == nil {
+		return errors.New("event not found")
 	}
 
-	registration := models.Registration{
-		EventID: eventID,
-		UserID:  userID.(int),
-	}
-
-	err = registration.Cancel(context.Request.Context())
+	alreadyRegistered, err := IsUserRegistered(ctx, r.EventID, r.UserID)
 	if err != nil {
-		if err.Error() == "event not found" {
-			context.JSON(http.StatusNotFound, gin.H{
-				"message": "event not found",
-			})
-			return
-		}
-		if err.Error() == "you are not registered for this event" {
-			context.JSON(http.StatusBadRequest, gin.H{
-				"message": "you are not registered for this event",
-			})
-			return
-		}
-		context.JSON(http.StatusInternalServerError, gin.H{
-			"message": "could not cancel registration",
-		})
-		return
+		return err
+	}
+	if alreadyRegistered {
+		return errors.New("already registered for this event")
 	}
 
-	context.JSON(http.StatusOK, gin.H{
-		"message": "registration cancelled successfully",
-	})
+	query := `INSERT INTO registrations(event_id, user_id) VALUES (?, ?)`
+
+	result, err := db.DB.ExecContext(ctx, query, r.EventID, r.UserID)
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return errors.New("already registered for this event")
+		}
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.New("request timeout while registering for event")
+		}
+		if ctx.Err() == context.Canceled {
+			return errors.New("request was canceled while registering for event")
+		}
+		return err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	r.ID = int(id)
+	return nil
+}
+
+func (r *Registration) Cancel(ctx context.Context) error {
+	event, err := GetEventByID(ctx, r.EventID)
+	if err != nil {
+		return err
+	}
+	if event == nil {
+		return errors.New("event not found")
+	}
+
+	alreadyRegistered, err := IsUserRegistered(ctx, r.EventID, r.UserID)
+	if err != nil {
+		return err
+	}
+	if !alreadyRegistered {
+		return errors.New("you are not registered for this event")
+	}
+
+	query := `DELETE FROM registrations WHERE event_id = ? AND user_id = ?`
+
+	_, err = db.DB.ExecContext(ctx, query, r.EventID, r.UserID)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.New("request timeout while canceling registration")
+		}
+		if ctx.Err() == context.Canceled {
+			return errors.New("request was canceled while canceling registration")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func IsUserRegistered(ctx context.Context, eventID, userID int) (bool, error) {
+	query := `SELECT COUNT(*) FROM registrations WHERE event_id = ? AND user_id = ?`
+
+	row := db.DB.QueryRowContext(ctx, query, eventID, userID)
+
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return false, errors.New("request timeout while checking registration")
+		}
+		return false, err
+	}
+
+	return count > 0, nil
 }

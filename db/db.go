@@ -8,7 +8,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-var DB *sql.DB //gloabl db instance (thread-safe connection pool manager)
+var DB *sql.DB //global db instance (thread-safe connection pool manager)
 
 func InitDB() {
 	var err error
@@ -52,7 +52,8 @@ func createTables() {
 	CREATE TABLE IF NOT EXISTS registrations (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		event_id INTEGER REFERENCES events(id),
-		user_id INTEGER REFERENCES users(id)
+		user_id INTEGER REFERENCES users(id),
+		UNIQUE(event_id, user_id)
 	);
 	`
 	createRefreshTokensTable := `
