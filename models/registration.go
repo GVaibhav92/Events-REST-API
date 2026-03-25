@@ -4,6 +4,7 @@ import (
 	"REST-API/db"
 	"context"
 	"errors"
+	"strings"
 )
 
 type Registration struct {
@@ -33,6 +34,9 @@ func (r *Registration) Save(ctx context.Context) error {
 
 	result, err := db.DB.ExecContext(ctx, query, r.EventID, r.UserID)
 	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return errors.New("already registered for this event")
+		}
 		if ctx.Err() == context.DeadlineExceeded {
 			return errors.New("request timeout while registering for event")
 		}
