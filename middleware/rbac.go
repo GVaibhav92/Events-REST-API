@@ -27,8 +27,9 @@ func RequireAdmin(context *gin.Context) {
 	context.Next()
 }
 
-// checks if the user owns the resource OR is an admin
-// resource owner ID should be set by the handler before this
+// checks if the user owns the resource OR is an admin.
+// Reserved for future route-level ownership enforcement.
+// Ownership is currently enforced directly inside the relevant handlers.
 func RequireOwnerOrAdmin(context *gin.Context) {
 	role, roleExists := context.Get("role")
 	userID, userExists := context.Get("userId")

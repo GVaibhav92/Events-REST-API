@@ -3,6 +3,7 @@ package models
 import (
 	"REST-API/config"
 	"REST-API/db"
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ func TestSaveEvent(t *testing.T) {
 		UserID:      1,
 	}
 
-	err := event.Save()
+	err := event.Save(context.Background())
 	if err != nil {
 		t.Errorf("expected no error saving event, got: %v", err)
 	}
@@ -53,10 +54,10 @@ func TestGetAllEvents(t *testing.T) {
 			DateTime:    time.Now().Add(24 * time.Hour),
 			UserID:      1,
 		}
-		event.Save()
+		event.Save(context.Background())
 	}
 
-	events, total, err := GetAllEvents(1, 10)
+	events, total, err := GetAllEvents(context.Background(), 1, 10)
 	if err != nil {
 		t.Errorf("expected no error, got: %v", err)
 	}
@@ -78,9 +79,9 @@ func TestGetEventByID(t *testing.T) {
 		DateTime:    time.Now().Add(24 * time.Hour),
 		UserID:      1,
 	}
-	event.Save()
+	event.Save(context.Background())
 
-	found, err := GetEventByID(event.ID)
+	found, err := GetEventByID(context.Background(), event.ID)
 	if err != nil {
 		t.Errorf("expected no error, got: %v", err)
 	}
@@ -95,7 +96,7 @@ func TestGetEventByID(t *testing.T) {
 func TestGetEventByID_NotFound(t *testing.T) {
 	setupTestDB(t)
 
-	found, err := GetEventByID(999)
+	found, err := GetEventByID(context.Background(), 999)
 	if err != nil {
 		t.Errorf("expected no error for missing event, got: %v", err)
 	}
@@ -114,16 +115,16 @@ func TestUpdateEvent(t *testing.T) {
 		DateTime:    time.Now().Add(24 * time.Hour),
 		UserID:      1,
 	}
-	event.Save()
+	event.Save(context.Background())
 
 	event.Name = "Updated Name"
 	event.Description = "Updated description here"
-	err := event.Update()
+	err := event.Update(context.Background())
 	if err != nil {
 		t.Errorf("expected no error on update, got: %v", err)
 	}
 
-	updated, _ := GetEventByID(event.ID)
+	updated, _ := GetEventByID(context.Background(), event.ID)
 	if updated.Name != "Updated Name" {
 		t.Errorf("expected updated name, got %s", updated.Name)
 	}
@@ -139,14 +140,14 @@ func TestDeleteEvent(t *testing.T) {
 		DateTime:    time.Now().Add(24 * time.Hour),
 		UserID:      1,
 	}
-	event.Save()
+	event.Save(context.Background())
 
-	err := event.Delete()
+	err := event.Delete(context.Background())
 	if err != nil {
 		t.Errorf("expected no error on delete, got: %v", err)
 	}
 
-	found, _ := GetEventByID(event.ID)
+	found, _ := GetEventByID(context.Background(), event.ID)
 	if found != nil {
 		t.Error("expected event to be deleted, but it still exists")
 	}
@@ -164,11 +165,11 @@ func TestPagination(t *testing.T) {
 			DateTime:    time.Now().Add(24 * time.Hour),
 			UserID:      1,
 		}
-		event.Save()
+		event.Save(context.Background())
 	}
 
 	// Request page 1 with limit 3 — should get 3 results
-	events, total, _ := GetAllEvents(1, 3)
+	events, total, _ := GetAllEvents(context.Background(), 1, 3)
 	if len(events) != 3 {
 		t.Errorf("expected 3 events on page 1, got %d", len(events))
 	}
@@ -177,7 +178,7 @@ func TestPagination(t *testing.T) {
 	}
 
 	// Request page 2 with limit 3 — should get remaining 2
-	events, _, _ = GetAllEvents(2, 3)
+	events, _, _ = GetAllEvents(context.Background(), 2, 3)
 	if len(events) != 2 {
 		t.Errorf("expected 2 events on page 2, got %d", len(events))
 	}

@@ -69,7 +69,7 @@ func GetAllEvents(ctx context.Context, page, limit int) ([]Event, int, error) {
 	}
 	defer rows.Close()
 
-	var events []Event
+	events := make([]Event, 0)
 	for rows.Next() {
 		var event Event
 		err := rows.Scan(
