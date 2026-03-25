@@ -16,18 +16,9 @@ func Timeout(timeout time.Duration) gin.HandlerFunc {
 		// Replace request context with timeout context
 		c.Request = c.Request.WithContext(ctx)
 
-		done := make(chan struct{})
+		c.Next()
 
-		go func() {
-			c.Next()
-			close(done)
-		}()
-
-		select {
-		case <-done:
-			// Request completed within timeout
-			return
-		case <-ctx.Done():
+		if ctx.Err() == context.DeadlineExceeded {
 			c.AbortWithStatusJSON(http.StatusGatewayTimeout, gin.H{
 				"message": "request timeout",
 				"error":   "the request took too long to process",
