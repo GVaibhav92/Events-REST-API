@@ -46,8 +46,15 @@ func VerifyToken(tokenString string) (int, string, error) {
 		return 0, "", errors.New("invalid token claims")
 	}
 
-	userID := int(claims["userId"].(float64))
-	role := claims["role"].(string)
+	userIDFloat, ok := claims["userId"].(float64)
+	if !ok {
+		return 0, "", errors.New("invalid token claims")
+	}
+	role, ok := claims["role"].(string)
+	if !ok {
+		return 0, "", errors.New("invalid token claims")
+	}
+	userID := int(userIDFloat)
 	return userID, role, nil
 }
 
